@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This file is a part of SebkSmallOrmBundle
  * Copyright 2015 - Sébastien Kus
@@ -11,19 +10,19 @@ namespace Sebk\SmallOrmBundle\Dao;
 /**
  * Class model
  */
-class Model implements \JsonSerializable {
-
+class Model implements \JsonSerializable
+{
     private $modelName;
     private $bundle;
     protected $container;
-    private $primaryKeys = array();
+    private $primaryKeys         = array();
     private $originalPrimaryKeys = null;
-    private $fields = array();
-    private $toOnes = array();
-    private $toManys = array();
-    private $metadata = array();
-    public $fromDb = false;
-    public $altered = false;
+    private $fields              = array();
+    private $toOnes              = array();
+    private $toManys             = array();
+    private $metadata            = array();
+    public $fromDb               = false;
+    public $altered              = false;
 
     /**
      * Construct model
@@ -31,9 +30,11 @@ class Model implements \JsonSerializable {
      * @param array $primaryKeys
      * @param array $fields
      */
-    public function __construct($modelName, $bundle, $primaryKeys, $fields, $toOnes, $toManys, $container) {
+    public function __construct($modelName, $bundle, $primaryKeys, $fields,
+                                $toOnes, $toManys, $container)
+    {
         $this->modelName = $modelName;
-        $this->bundle = $bundle;
+        $this->bundle    = $bundle;
         $this->container = $container;
 
         foreach ($primaryKeys as $primaryKey) {
@@ -56,14 +57,16 @@ class Model implements \JsonSerializable {
     /**
      * @return string
      */
-    public function getModelName() {
+    public function getModelName()
+    {
         return $this->modelName;
     }
 
     /**
      * @return string
      */
-    public function getBundle() {
+    public function getBundle()
+    {
         return $this->bundle;
     }
 
@@ -74,9 +77,10 @@ class Model implements \JsonSerializable {
      * @return mixed
      * @throws \ModelException
      */
-    public function __call($method, $args) {
-        $type = substr($method, 0, 3);
-        $name = lcfirst(substr($method, 3));
+    public function __call($method, $args)
+    {
+        $type      = substr($method, 0, 3);
+        $name      = lcfirst(substr($method, 3));
         $typeField = $this->getFieldType($name);
 
         switch ($type) {
@@ -89,7 +93,8 @@ class Model implements \JsonSerializable {
                     return $this->toOnes[$name];
                 } elseif ($typeField == "toMany") {
                     return $this->toManys[$name];
-                } elseif ($typeField == "metadata" && array_key_exists($name, $this->metadata)) {
+                } elseif ($typeField == "metadata" && array_key_exists($name,
+                        $this->metadata)) {
                     return $this->metadata[$name];
                 }
                 break;
@@ -112,11 +117,13 @@ class Model implements \JsonSerializable {
         }
     }
 
-    public function setOriginalPrimaryKeys() {
+    public function setOriginalPrimaryKeys()
+    {
         $this->originalPrimaryKeys = $this->primaryKeys;
     }
 
-    public function getOriginalPrimaryKeys() {
+    public function getOriginalPrimaryKeys()
+    {
         return $this->originalPrimaryKeys;
     }
 
@@ -126,7 +133,8 @@ class Model implements \JsonSerializable {
      * @return string
      * @throws \ModelException
      */
-    public function getFieldType($field) {
+    public function getFieldType($field)
+    {
         if (array_key_exists($field, $this->primaryKeys)) {
             return "primaryKeys";
         }
@@ -150,7 +158,8 @@ class Model implements \JsonSerializable {
      *
      * @return array
      */
-    public function getPrimaryKeys() {
+    public function getPrimaryKeys()
+    {
         return $this->primaryKeys;
     }
 
@@ -159,7 +168,8 @@ class Model implements \JsonSerializable {
      * @param boolean $dependecies
      * @return array
      */
-    public function toArray($dependecies = true, $onlyFields = false) {
+    public function toArray($dependecies = true, $onlyFields = false)
+    {
         $result = array();
 
         foreach ($this->primaryKeys as $key => $value) {
@@ -224,7 +234,8 @@ class Model implements \JsonSerializable {
      * 
      * @return array
      */
-    public function jsonSerialize() {
+    public function jsonSerialize()
+    {
         if (is_array($this->toArray())) {
             return $this->toUtf8Array($this->toArray());
         } else {
@@ -237,7 +248,8 @@ class Model implements \JsonSerializable {
      * @param array $array
      * @return array
      */
-    protected function toUtf8Array($array) {
+    protected function toUtf8Array($array)
+    {
         foreach ($array as $key => $cell) {
             if (is_array($cell)) {
                 $array[$key] = $this->toUtf8Array($cell);
@@ -257,7 +269,8 @@ class Model implements \JsonSerializable {
      * @param string $str
      * @return string
      */
-    protected function toUtf8String($str) {
+    protected function toUtf8String($str)
+    {
         if (mb_detect_encoding($str, 'UTF-8', true) === false) {
             return utf8_encode($str);
         }
@@ -270,34 +283,36 @@ class Model implements \JsonSerializable {
      * @param type $alias
      * @throws DaoException
      */
-    protected function loadToOne($alias, $dependenciesAliases) {
+    protected function loadToOne($alias, $dependenciesAliases)
+    {
         if (!array_key_exists($alias, $this->toOnes)) {
             throw new DaoException("Field '$alias' does not exists (loading to one relation");
         }
 
         if ($this->toOnes[$alias] === null) {
             $this->container
-                    ->get("sebk_small_orm_dao")
-                    ->get($this->bundle, $this->modelName)
-                    ->loadToOne($alias, $this, $dependenciesAliases);
+                ->get("sebk_small_orm_dao")
+                ->get($this->bundle, $this->modelName)
+                ->loadToOne($alias, $this, $dependenciesAliases);
         }
     }
-    
+
     /**
      * Load a toMany relation if not loaded
      * @param type $alias
      * @throws DaoException
      */
-    protected function loadToMany($alias, $dependenciesAliases) {
+    protected function loadToMany($alias, $dependenciesAliases)
+    {
         if (!array_key_exists($alias, $this->toManys)) {
             throw new DaoException("Field '$alias' does not exists (loading to one relation");
         }
 
         if (count($this->toManys[$alias])) {
             $this->container
-                    ->get("sebk_small_orm_dao")
-                    ->get($this->bundle, $this->modelName)
-                    ->loadToMany($alias, $this, $dependenciesAliases);
+                ->get("sebk_small_orm_dao")
+                ->get($this->bundle, $this->modelName)
+                ->loadToMany($alias, $this, $dependenciesAliases);
         }
     }
 }

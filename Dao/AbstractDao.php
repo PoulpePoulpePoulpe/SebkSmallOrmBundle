@@ -27,6 +27,7 @@ abstract class AbstractDao {
     private $dbTableName;
     private $primaryKeys = array();
     private $fields = array();
+    private $fieldsTypes = array();
     private $toOne = array();
     private $toMany = array();
     private $defaultValues = array();
@@ -91,9 +92,10 @@ abstract class AbstractDao {
      * @param string $dbFieldName
      * @param string $modelFieldName
      */
-    protected function addField($dbFieldName, $modelFieldName, $defaultValue = null) {
+    protected function addField($dbFieldName, $modelFieldName, $defaultValue = null, $type = "mixed") {
         $this->fields[] = new Field($dbFieldName, $modelFieldName);
         $this->defaultValues[$modelFieldName] = $defaultValue;
+        $this->fieldsType[] = $type;
 
         return $this;
     }
@@ -338,7 +340,10 @@ abstract class AbstractDao {
      * @param QueryBuilder $query
      * @param string $alias
      * @param array $records
+     * @param boolean $asCollection
+     * @param boolean $groupByModels
      * @return Model
+     * @throws \DaoException
      */
     protected function populate(QueryBuilder $query, $alias, $records, $asCollection, $groupByModels) {
         $model = $this->newModel();
@@ -346,7 +351,24 @@ abstract class AbstractDao {
 
         foreach ($fields as $property => $value) {
             $method = "set" . $property;
-            $model->$method($value);
+            switch($this->fieldsTypes[$property]) {
+                case "mixed":
+                    $model->$method($value);
+                    break;
+
+                case "boolean":
+                    $model->$method(($value === false)?"0":"1");
+                    break;
+
+                case "datetime":
+                case "date":
+                    $model->$method(new \DateTime($value));
+                    break;
+
+                default:
+                    throw new \DaoException("Invalid field type (".$this->fieldsTypes[$property].")");
+            }
+
         }
         
         if(!$groupByModels) {
@@ -554,6 +576,22 @@ abstract class AbstractDao {
     }
 
     /**
+     * Convert value from model type to db type
+     * @param mixed $value
+     * @return string
+     */
+    protected function modelTypeToDbType($value)
+    {
+        if($value === true || $value === false) {
+            return $value?"1":"0";
+        }
+
+        if($value instanceof \DateTime) {
+            return $value->format("Y-m-d H:i:s");
+        }
+    }
+
+    /**
      * Insert model in database
      * @param \Sebk\SmallOrmBundle\Dao\Model $model
      * @return \Sebk\SmallOrmBundle\Dao\AbstractDao
@@ -566,6 +604,7 @@ abstract class AbstractDao {
         foreach ($fields as $key => $val) {
             $queryFields[$key] = ":$key";
             $columns[] = $this->getField($key)->getDbName();
+            $fields[$key] = $this->modelTypeToDbType($val);
         }
         $sql .= "(" . implode(", ", $columns) . ")";
         $sql .= " VALUES(";
@@ -621,7 +660,7 @@ abstract class AbstractDao {
         $fields = $model->toArray(false, true);
         foreach ($fields as $key => $val) {
             $queryFields[$key] = $this->getDbNameFromModelName($key) . " = :$key";
-            $parms[$key] = $val;
+            $parms[$key] = $this->modelTypeToDbType($val);
         }
         $sql .= implode(", ", $queryFields);
 
@@ -705,8 +744,10 @@ abstract class AbstractDao {
      * @param boolean $setOriginalKeys
      * @return \Sebk\SmallOrmBundle\Dao\Model
      */
-    public function makeModelFromStdClass($stdClass, $setOriginalKeys = false) {
-        $model = $this->newModel();
+    public function makeModelFromStdClass($stdClass, $setOriginalKeys = false, $model = null) {
+        if($model === null) {
+            $model = $this->newModel();
+        }
 
         foreach ($stdClass as $prop => $value) {
             $method = "set" . $prop;
