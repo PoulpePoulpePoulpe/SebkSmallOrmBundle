@@ -18,6 +18,11 @@ use Sebk\SmallOrmBundle\QueryBuilder\UpdateBuilder;
  */
 abstract class AbstractDao {
 
+    const TYPE_MIXED = "mixed";
+    const TYPE_BOOLEAN = "boolean";
+    const TYPE_DATE = "date";
+    const TYPE_DATETIME = "datetime";
+
     protected $connection;
     protected $daoFactory;
     protected $modelNamespace;
@@ -81,9 +86,10 @@ abstract class AbstractDao {
      * @param string $dbFieldName
      * @param string $modelFieldName
      */
-    protected function addPrimaryKey($dbFieldName, $modelFieldName, $defaultValue = null) {
+    protected function addPrimaryKey($dbFieldName, $modelFieldName, $defaultValue = null, $type = self::TYPE_MIXED) {
         $this->primaryKeys[] = new Field($dbFieldName, $modelFieldName);
         $this->defaultValues[$modelFieldName] = $defaultValue;
+        $this->fieldsTypes[$modelFieldName] = $type;
 
         return $this;
     }
@@ -92,10 +98,10 @@ abstract class AbstractDao {
      * @param string $dbFieldName
      * @param string $modelFieldName
      */
-    protected function addField($dbFieldName, $modelFieldName, $defaultValue = null, $type = "mixed") {
+    protected function addField($dbFieldName, $modelFieldName, $defaultValue = null, $type = self::TYPE_MIXED) {
         $this->fields[] = new Field($dbFieldName, $modelFieldName);
         $this->defaultValues[$modelFieldName] = $defaultValue;
-        $this->fieldsType[] = $type;
+        $this->fieldsTypes[$modelFieldName] = $type;
 
         return $this;
     }
@@ -158,12 +164,12 @@ abstract class AbstractDao {
         }
 
         $model = new $modelClass($this->modelName, $this->modelBundle, $primaryKeys, $fields, $toOnes, $toManys, $this->container);
-
+        
         foreach ($this->defaultValues as $property => $defaultValue) {
             $method = "set" . $property;
             $model->$method($defaultValue);
         }
-
+        
         return $model;
     }
 
@@ -352,16 +358,16 @@ abstract class AbstractDao {
         foreach ($fields as $property => $value) {
             $method = "set" . $property;
             switch($this->fieldsTypes[$property]) {
-                case "mixed":
+                case self::TYPE_MIXED:
                     $model->$method($value);
                     break;
 
-                case "boolean":
+                case self::TYPE_BOOLEAN:
                     $model->$method(($value === false)?"0":"1");
                     break;
 
-                case "datetime":
-                case "date":
+                case self::TYPE_DATE:
+                case self::TYPE_DATETIME:
                     $model->$method(new \DateTime($value));
                     break;
 
@@ -589,6 +595,8 @@ abstract class AbstractDao {
         if($value instanceof \DateTime) {
             return $value->format("Y-m-d H:i:s");
         }
+
+        return $value;
     }
 
     /**
@@ -694,8 +702,8 @@ abstract class AbstractDao {
         if (!$model->fromDb) {
             throw new DaoException("Try delete a record not from db from '$this->modelBundle' '$this->modelName' model");
         }
-        $parms = array();
 
+        $parms = array();
         $sql = "DELETE FROM " . $this->connection->getDatabase() . "." . $this->dbTableName . " ";
 
         if ($model->getOriginalPrimaryKeys() === null) {

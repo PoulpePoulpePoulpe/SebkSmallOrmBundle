@@ -96,6 +96,8 @@ class Model implements \JsonSerializable
                 } elseif ($typeField == "metadata" && array_key_exists($name,
                         $this->metadata)) {
                     return $this->metadata[$name];
+                } else {
+                    throw new ModelException("Try to get inexistant metadata '$name' of model '".$this->bundle."' '$this->modelName'");
                 }
                 break;
             case "set":
