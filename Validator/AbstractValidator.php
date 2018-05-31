@@ -5,6 +5,10 @@ namespace Sebk\SmallOrmBundle\Validator;
 use Sebk\SmallOrmBundle\Factory\Dao;
 use Sebk\SmallOrmBundle\Dao\Model;
 
+/**
+ * Class AbstractValidator
+ * @package Sebk\SmallOrmBundle\Validator
+ */
 abstract class AbstractValidator
 {
     protected $daoFactory;
@@ -12,6 +16,7 @@ abstract class AbstractValidator
     protected $message;
 
     /**
+     * AbstractValidator constructor.
      *
      * @param Dao $daoFactory
      * @param Model $model
@@ -23,7 +28,7 @@ abstract class AbstractValidator
     }
 
     /**
-     * 
+     *
      * @param type $property
      * @param type $table
      * @param type $idTable
@@ -51,8 +56,11 @@ abstract class AbstractValidator
 
     /**
      * Test if field is empty
+     *
      * @param string $field
      * @return boolean
+     *
+     * @throws \Sebk\SmallOrmBundle\Dao\ModelException
      */
     public function testNonEmpty($field)
     {
@@ -60,12 +68,13 @@ abstract class AbstractValidator
         if ($this->model->$method() !== null && trim($this->model->$method()) != "") {
             return true;
         }
-        
+
         return false;
     }
 
     /**
      * Get errors message
+     *
      * @return string
      */
     public function getMessage()
@@ -74,16 +83,22 @@ abstract class AbstractValidator
     }
 
     /**
+     * Test if field is unique
      *
      * @param string $field
+     *
      * @return string
+     *
+     * @throws \Sebk\SmallOrmBundle\Dao\ModelException
+     * @throws \Sebk\SmallOrmBundle\Factory\ConfigurationException
+     * @throws \Sebk\SmallOrmBundle\Factory\DaoNotFoundException
      */
     public function testUnique($field)
     {
         $dao      = $this->daoFactory->get($this->model->getBundle(),
             $this->model->getModelName());
         $creation = !$this->model->fromDb;
-        
+
         $query  = $dao->createQueryBuilder("uniqueTable");
         $where  = $query->where();
         $method = "get".$field;
@@ -107,13 +122,22 @@ abstract class AbstractValidator
             $where->andCondition($query->getFieldForCondition($field), "=",
                 ":".$field);
             $query->setParameter($field, $this->model->$method());
-            
+
             $result = $dao->getResult($query);
         }
 
         return count($result) == 0;
     }
-    
+
+    /**
+     * Test if field is an integer
+     *
+     * @param $field
+     *
+     * @return bool
+     *
+     * @throws \Sebk\SmallOrmBundle\Dao\ModelException
+     */
     public function testInteger($field)
     {
         $method = "get".$field;
@@ -126,5 +150,35 @@ abstract class AbstractValidator
         }
 
         return true;
+    }
+
+    /**
+     * Test field with filter_var
+     *
+     * @param mixed     $field      Can be a string (for filter_var) or an array (for filter_var_array)
+     * @param mixed     $filter     Can be a int (for filter_var) or an array (for filter_var_array)
+     * @param mixed     $options    For flags.
+     *
+     * @return bool
+     *
+     * @throws \Sebk\SmallOrmBundle\Dao\ModelException
+     */
+    public function testFilterVar($field, $filter, $options)
+    {
+        $method = "get".$field;
+        $value = $this->model->$method();
+
+        if (is_array($value)) {
+            $options = !is_bool($options)? true : $options;
+            if (filter_var_array($value, $filter, $options) !== false) {
+                return true;
+            }
+        } else {
+            if (filter_var($value, $filter, $options) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
